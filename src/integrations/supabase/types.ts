@@ -14,7 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      care_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          plant_id: string
+          scheduled_date: string
+          task_type: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          plant_id: string
+          scheduled_date: string
+          task_type?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          plant_id?: string
+          scheduled_date?: string
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_tasks_plant_id_fkey"
+            columns: ["plant_id"]
+            isOneToOne: false
+            referencedRelation: "plants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plants: {
+        Row: {
+          common_name: string
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          last_watered_at: string | null
+          scientific_name: string | null
+          updated_at: string | null
+          user_id: string
+          watering_frequency_days: number | null
+        }
+        Insert: {
+          common_name: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_watered_at?: string | null
+          scientific_name?: string | null
+          updated_at?: string | null
+          user_id: string
+          watering_frequency_days?: number | null
+        }
+        Update: {
+          common_name?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          last_watered_at?: string | null
+          scientific_name?: string | null
+          updated_at?: string | null
+          user_id?: string
+          watering_frequency_days?: number | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
