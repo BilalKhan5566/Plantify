@@ -3,15 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
-import { Leaf, LogOut, Library, Calendar, Menu, X } from 'lucide-react';
+import { Leaf, LogOut, Calendar, Menu, User, Flower2 } from 'lucide-react';
 import PlantIdentifier from '@/components/PlantIdentifier';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface IdentificationResult {
   commonName: string;
   scientificName: string;
-  description: string;
+  about: string;
+  explanation: string;
+  additionalInfo: string[];
   wateringFrequencyDays: number;
   probability: number;
   imageUrl: string;
@@ -60,7 +63,7 @@ const Index = () => {
         user_id: session.user.id,
         common_name: result.commonName,
         scientific_name: result.scientificName,
-        description: result.description,
+        description: `${result.about}\n\n${result.explanation}\n\n${result.additionalInfo.join('\n')}`,
         image_url: result.imageUrl,
         watering_frequency_days: result.wateringFrequencyDays,
         last_watered_at: new Date().toISOString(),
@@ -89,15 +92,19 @@ const Index = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Animated Background */}
+      {/* Background Video */}
       <div className="fixed inset-0 -z-10">
-        <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/20 to-accent/10" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent animate-pulse" style={{ animationDuration: '8s' }} />
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-          <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-secondary/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
-        </div>
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover opacity-20"
+        >
+          <source src="https://cdn.pixabay.com/video/2022/11/07/138314-770049062_large.mp4" type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-gradient-to-br from-background/50 via-secondary/10 to-accent/5" />
       </div>
 
       {/* Header */}
@@ -116,7 +123,7 @@ const Index = () => {
               onClick={() => navigate('/my-plants')}
               className="hover-scale"
             >
-              <Library className="h-4 w-4 mr-2" />
+              <Flower2 className="h-4 w-4 mr-2" />
               My Plants
             </Button>
             <Button
@@ -128,15 +135,27 @@ const Index = () => {
               <Calendar className="h-4 w-4 mr-2" />
               Dashboard
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="hover-scale"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            
+            {/* Profile Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="hover-scale">
+                  <User className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-md border-border z-50">
+                <DropdownMenuItem onClick={() => toast.info('Profile feature coming soon')}>
+                  View Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => toast.info('History feature coming soon')}>
+                  Delete History
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Mobile Navigation */}
@@ -156,7 +175,7 @@ const Index = () => {
                     setMobileMenuOpen(false);
                   }}
                 >
-                  <Library className="h-5 w-5 mr-3" />
+                  <Flower2 className="h-5 w-5 mr-3" />
                   My Plants
                 </Button>
                 <Button
@@ -169,6 +188,27 @@ const Index = () => {
                 >
                   <Calendar className="h-5 w-5 mr-3" />
                   Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    toast.info('Profile feature coming soon');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <User className="h-5 w-5 mr-3" />
+                  View Profile
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    toast.info('History feature coming soon');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  Delete History
                 </Button>
                 <Button
                   variant="ghost"
@@ -203,30 +243,63 @@ const Index = () => {
             <PlantIdentifier onIdentified={setResult} />
           ) : (
             <div className="space-y-4 animate-scale-in">
-              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-xl p-6 space-y-4 shadow-xl hover-scale">
+              <div className="bg-card/90 backdrop-blur-md border border-border rounded-xl p-6 md:p-8 space-y-6 shadow-xl hover-scale">
                 <img
                   src={result.imageUrl}
                   alt={result.commonName}
-                  className="w-full h-64 object-cover rounded-xl shadow-lg"
+                  className="w-full h-64 md:h-80 object-cover rounded-xl shadow-lg"
                 />
-                <div className="space-y-2">
-                  <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">{result.commonName}</h3>
-                  <p className="text-sm text-muted-foreground italic">
-                    {result.scientificName}
-                  </p>
-                  <p className="text-sm text-foreground">{result.description}</p>
-                  <div className="pt-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Watering Schedule</p>
-                      <p className="font-semibold">Every {result.wateringFrequencyDays} days</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Confidence</p>
-                      <p className="font-semibold">{Math.round(result.probability * 100)}%</p>
+                
+                <div className="space-y-5">
+                  {/* Header */}
+                  <div className="space-y-2 border-b border-border pb-4">
+                    <h3 className="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+                      {result.commonName}
+                    </h3>
+                    <p className="text-sm md:text-base text-muted-foreground italic">
+                      {result.scientificName}
+                    </p>
+                    <div className="flex items-center gap-4 pt-2">
+                      <div className="bg-primary/10 px-3 py-1 rounded-full">
+                        <p className="text-xs text-primary font-medium">
+                          {Math.round(result.probability * 100)}% Match
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  {/* About Section */}
+                  <div className="space-y-2">
+                    <h4 className="text-lg font-semibold text-primary">About</h4>
+                    <p className="text-sm md:text-base text-foreground leading-relaxed">
+                      {result.about}
+                    </p>
+                  </div>
+
+                  {/* Explanation Section */}
+                  <div className="space-y-2">
+                    <h4 className="text-lg font-semibold text-primary">Explanation</h4>
+                    <p className="text-sm md:text-base text-foreground leading-relaxed">
+                      {result.explanation}
+                    </p>
+                  </div>
+
+                  {/* Additional Information */}
+                  <div className="space-y-3">
+                    <h4 className="text-lg font-semibold text-primary">Additional Information</h4>
+                    <ul className="space-y-2">
+                      {result.additionalInfo.map((info, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm md:text-base text-foreground">
+                          <span className="text-accent mt-1">•</span>
+                          <span className="leading-relaxed">{info}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3">
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
                   <Button
                     onClick={handleSavePlant}
                     disabled={saving}

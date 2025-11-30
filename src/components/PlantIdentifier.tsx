@@ -8,7 +8,9 @@ import { Camera, Upload, Loader2 } from 'lucide-react';
 interface IdentificationResult {
   commonName: string;
   scientificName: string;
-  description: string;
+  about: string;
+  explanation: string;
+  additionalInfo: string[];
   wateringFrequencyDays: number;
   probability: number;
 }
@@ -63,15 +65,8 @@ const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
     setLoading(true);
 
     try {
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      // Convert to base64 for API
-      const base64 = await new Promise<string>((resolve) => {
+      // Create preview and convert to base64 simultaneously
+      const base64Promise = new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
@@ -79,6 +74,17 @@ const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
         };
         reader.readAsDataURL(file);
       });
+
+      const previewPromise = new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      const [base64, previewUrl] = await Promise.all([base64Promise, previewPromise]);
+      setPreview(previewUrl);
 
       // Call edge function
       const { data, error } = await supabase.functions.invoke('identify-plant', {
@@ -91,7 +97,7 @@ const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
         toast.success('Plant identified!');
         onIdentified({
           ...data,
-          imageUrl: preview || '',
+          imageUrl: previewUrl,
         });
       } else {
         toast.error('Could not identify plant');
