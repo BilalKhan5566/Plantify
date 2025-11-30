@@ -37,7 +37,7 @@ const Auth = () => {
 
     setLoading(true);
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -50,11 +50,13 @@ const Auth = () => {
 
     if (error) {
       toast.error(error.message);
+      setLoading(false);
     } else {
-      toast.success('Account created successfully! Please log in.');
-      setEmail('');
-      setPassword('');
-      setFullName('');
+      toast.success('Account created successfully! Redirecting...');
+      // Auto-login after signup
+      if (data.session) {
+        navigate('/');
+      }
     }
     
     setLoading(false);
