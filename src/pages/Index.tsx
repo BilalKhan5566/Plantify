@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
-import { Leaf, LogOut, Library, Calendar } from 'lucide-react';
+import { Leaf, LogOut, Library, Calendar, Menu, X } from 'lucide-react';
 import PlantIdentifier from '@/components/PlantIdentifier';
 import { toast } from 'sonner';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 interface IdentificationResult {
   commonName: string;
@@ -22,6 +23,7 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<IdentificationResult | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -86,19 +88,33 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/10">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary/20 to-accent/10" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute inset-0 opacity-30">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '0s' }} />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+          <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-secondary/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+        </div>
+      </div>
+
       {/* Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
+      <header className="border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Leaf className="h-8 w-8 text-primary" />
+            <Leaf className="h-8 w-8 text-primary animate-pulse" style={{ animationDuration: '3s' }} />
             <h1 className="text-2xl font-bold text-foreground">Plantify</h1>
           </div>
-          <div className="flex items-center space-x-2">
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => navigate('/my-plants')}
+              className="hover-scale"
             >
               <Library className="h-4 w-4 mr-2" />
               My Plants
@@ -107,6 +123,7 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={() => navigate('/dashboard')}
+              className="hover-scale"
             >
               <Calendar className="h-4 w-4 mr-2" />
               Dashboard
@@ -115,22 +132,69 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
+              className="hover-scale"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>
           </div>
+
+          {/* Mobile Navigation */}
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild className="md:hidden">
+              <Button variant="ghost" size="sm">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-64">
+              <div className="flex flex-col space-y-4 mt-8">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    navigate('/my-plants');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <Library className="h-5 w-5 mr-3" />
+                  My Plants
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    navigate('/dashboard');
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <Calendar className="h-5 w-5 mr-3" />
+                  Dashboard
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    handleSignOut();
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <LogOut className="h-5 w-5 mr-3" />
+                  Sign Out
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 relative">
         <div className="max-w-2xl mx-auto space-y-6">
           <div className="text-center space-y-2 animate-fade-in">
-            <h2 className="text-4xl font-bold text-foreground">
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary to-accent">
               Discover Your Plants
             </h2>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-lg">
               Identify plants instantly and manage their care schedule
             </p>
           </div>
@@ -139,14 +203,14 @@ const Index = () => {
             <PlantIdentifier onIdentified={setResult} />
           ) : (
             <div className="space-y-4 animate-scale-in">
-              <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+              <div className="bg-card/80 backdrop-blur-sm border border-border rounded-xl p-6 space-y-4 shadow-xl hover-scale">
                 <img
                   src={result.imageUrl}
                   alt={result.commonName}
-                  className="w-full h-64 object-cover rounded-lg"
+                  className="w-full h-64 object-cover rounded-xl shadow-lg"
                 />
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-bold">{result.commonName}</h3>
+                  <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">{result.commonName}</h3>
                   <p className="text-sm text-muted-foreground italic">
                     {result.scientificName}
                   </p>
@@ -162,17 +226,18 @@ const Index = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     onClick={handleSavePlant}
                     disabled={saving}
-                    className="flex-1"
+                    className="flex-1 hover-scale"
                   >
                     {saving ? 'Saving...' : 'Add to My Plants'}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setResult(null)}
+                    className="hover-scale"
                   >
                     Identify Another
                   </Button>
