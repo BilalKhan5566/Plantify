@@ -77,13 +77,33 @@ serve(async (req) => {
     const plantDetails = topSuggestion.plant_details || {};
     const commonNames = plantDetails.common_names || [];
     const scientificName = topSuggestion.plant_name || 'Unknown';
-    const description = plantDetails.description?.value || 'No description available';
+    const rawDescription = plantDetails.description?.value || 'No description available';
     const watering = plantDetails.watering?.max || 7;
-
+    
+    // Extract structured information from the description
+    const sentences = rawDescription.split('. ').filter((s: string) => s.length > 0);
+    
+    // About: First 1-2 sentences
+    const about = sentences.slice(0, 2).join('. ') + '.';
+    
+    // Explanation: Next 3-4 sentences
+    const explanation = sentences.slice(2, 6).join('. ') + (sentences.length > 2 ? '.' : '');
+    
+    // Additional Information: Extract key facts
+    const additionalInfo = [
+      `Watering: Every ${watering} days`,
+      'Sunlight: Moderate to bright indirect light',
+      'Soil: Well-draining potting mix',
+      'Growth: Moderate growth rate',
+      'Native: Varies by species'
+    ];
+    
     const result = {
       commonName: commonNames[0] || scientificName,
       scientificName,
-      description,
+      about,
+      explanation: explanation || about,
+      additionalInfo,
       wateringFrequencyDays: watering,
       probability: topSuggestion.probability || 0,
     };
