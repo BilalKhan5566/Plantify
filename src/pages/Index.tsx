@@ -248,16 +248,33 @@ const Index = () => {
           </div>
 
           {!result && !errorMessage ? (
-            <PlantIdentifier 
-              onIdentified={(data) => {
-                setErrorMessage(null);
-                setResult(data);
-              }}
-              onError={(error) => {
-                setResult(null);
-                setErrorMessage(error);
-              }}
-            />
+            <>
+              <PlantIdentifier 
+                onIdentified={(data) => {
+                  setErrorMessage(null);
+                  setResult(data);
+                }}
+                onError={(error) => {
+                  setResult(null);
+                  setErrorMessage(error);
+                }}
+              />
+              
+              {/* About Section */}
+              <div className="text-center space-y-4 pt-8 pb-4 animate-fade-in" style={{ animationDelay: '0.3s', animationFillMode: 'backwards' }}>
+                <div className="inline-flex items-center gap-2 text-primary/60">
+                  <div className="w-8 h-px bg-primary/30" />
+                  <Leaf className="h-4 w-4" />
+                  <div className="w-8 h-px bg-primary/30" />
+                </div>
+                <h3 className="text-xl font-semibold text-foreground">
+                  Your pocket plant expert
+                </h3>
+                <p className="text-muted-foreground max-w-md mx-auto leading-relaxed">
+                  Snap a photo of any plant and we'll tell you what it is, how to care for it, and when to water it. Simple as that.
+                </p>
+              </div>
+            </>
           ) : errorMessage ? (
             <Card className="bg-card/90 backdrop-blur-md border-border/50 shadow-xl animate-scale-in">
               <CardContent className="pt-8 pb-8 text-center space-y-6">
