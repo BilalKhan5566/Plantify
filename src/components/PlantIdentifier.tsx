@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Camera, Upload, Loader2 } from 'lucide-react';
+import { Camera, Upload, Loader2, Leaf } from 'lucide-react';
+import CameraCapture from './CameraCapture';
 
 interface IdentificationResult {
   commonName: string;
@@ -17,52 +18,29 @@ interface IdentificationResult {
 
 interface PlantIdentifierProps {
   onIdentified: (result: IdentificationResult & { imageUrl: string }) => void;
+  onError: (error: string) => void;
 }
 
-const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
+const PlantIdentifier = ({ onIdentified, onError }: PlantIdentifierProps) => {
   const [loading, setLoading] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<string>('');
   const [preview, setPreview] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     processImage(file);
   };
 
-  const handleCameraCapture = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      const video = document.createElement('video');
-      video.srcObject = stream;
-      video.play();
-
-      // Wait for video to be ready
-      await new Promise((resolve) => {
-        video.onloadedmetadata = resolve;
-      });
-
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(video, 0, 0);
-
-      stream.getTracks().forEach((track) => track.stop());
-
-      canvas.toBlob((blob) => {
-        if (blob) {
-          processImage(blob);
-        }
-      }, 'image/jpeg');
-    } catch (error) {
-      console.error('Camera error:', error);
-      toast.error('Could not access camera');
-    }
+  const handleCameraCapture = (blob: Blob) => {
+    setShowCamera(false);
+    processImage(blob);
   };
 
   const processImage = async (file: File | Blob) => {
     setLoading(true);
+    setLoadingStep('Preparing image...');
 
     try {
       // Create preview and convert to base64 simultaneously
@@ -86,12 +64,37 @@ const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
       const [base64, previewUrl] = await Promise.all([base64Promise, previewPromise]);
       setPreview(previewUrl);
 
-      // Call edge function
+      // Step 1: Verify if image contains a plant
+      setLoadingStep('Checking if this is a plant...');
+      const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-plant', {
+        body: { imageBase64: base64 },
+      });
+
+      if (verifyError) {
+        console.error('Verification error:', verifyError);
+        // Continue anyway if verification fails
+      } else if (verifyData && !verifyData.isPlant) {
+        setLoading(false);
+        setPreview(null);
+        onError("Oops! This doesn't look like a plant. Please try again with a clear photo of a leaf or flower 🌿");
+        return;
+      }
+
+      // Step 2: Call PlantID API
+      setLoadingStep('Identifying plant...');
       const { data, error } = await supabase.functions.invoke('identify-plant', {
         body: { imageBase64: base64 },
       });
 
       if (error) throw error;
+
+      // Check for low confidence response
+      if (data && data.lowConfidence) {
+        setLoading(false);
+        setPreview(null);
+        onError("I couldn't confidently recognize any plant in this photo 🌱. Try again with a clearer image.");
+        return;
+      }
 
       if (data && data.commonName) {
         toast.success('Plant identified!');
@@ -100,51 +103,72 @@ const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
           imageUrl: previewUrl,
         });
       } else {
-        toast.error('Could not identify plant');
+        onError("I couldn't confidently recognize any plant in this photo 🌱. Try again with a clearer image.");
       }
     } catch (error) {
       console.error('Identification error:', error);
-      toast.error('Failed to identify plant');
+      onError('Failed to identify plant. Please try again.');
     } finally {
       setLoading(false);
+      setLoadingStep('');
     }
   };
 
+  const resetState = () => {
+    setPreview(null);
+    setShowCamera(false);
+    setLoading(false);
+    setLoadingStep('');
+  };
+
+  if (showCamera) {
+    return (
+      <CameraCapture
+        onCapture={handleCameraCapture}
+        onClose={() => setShowCamera(false)}
+      />
+    );
+  }
+
   return (
-    <Card className="w-full">
-      <CardContent className="pt-6">
-        {preview ? (
+    <Card className="w-full bg-card/90 backdrop-blur-md border-border/50 shadow-xl">
+      <CardContent className="pt-6 pb-8">
+        {preview && loading ? (
           <div className="space-y-4">
             <img
               src={preview}
               alt="Plant preview"
-              className="w-full h-64 object-cover rounded-lg"
+              className="w-full h-64 object-cover rounded-xl shadow-lg"
             />
-            {loading && (
-              <div className="flex items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <span className="ml-2">Identifying plant...</span>
+            <div className="flex flex-col items-center justify-center py-4 space-y-3">
+              <div className="relative">
+                <Leaf className="h-8 w-8 text-primary animate-pulse" />
+                <Loader2 className="h-12 w-12 text-primary/30 animate-spin absolute -top-2 -left-2" />
               </div>
-            )}
+              <span className="text-muted-foreground text-sm">{loadingStep}</span>
+            </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-semibold">Identify Your Plant</h3>
-              <p className="text-muted-foreground text-sm">
-                Upload a photo or take a picture to identify your plant
+          <div className="space-y-6">
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
+                <Leaf className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold text-foreground">Identify Your Plant</h3>
+              <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                Upload a photo or take a picture to instantly identify any plant
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
               <Button
                 variant="outline"
-                className="h-24 flex-col"
+                className="h-28 flex-col gap-3 bg-background/50 hover:bg-primary/5 border-border/60 hover:border-primary/40 transition-all duration-200 rounded-xl"
                 onClick={() => document.getElementById('file-upload')?.click()}
                 disabled={loading}
               >
-                <Upload className="h-8 w-8 mb-2" />
-                <span>Upload Photo</span>
+                <Upload className="h-8 w-8 text-primary" />
+                <span className="font-medium">Upload Photo</span>
               </Button>
               <input
                 id="file-upload"
@@ -156,12 +180,12 @@ const PlantIdentifier = ({ onIdentified }: PlantIdentifierProps) => {
 
               <Button
                 variant="outline"
-                className="h-24 flex-col"
-                onClick={handleCameraCapture}
+                className="h-28 flex-col gap-3 bg-background/50 hover:bg-primary/5 border-border/60 hover:border-primary/40 transition-all duration-200 rounded-xl"
+                onClick={() => setShowCamera(true)}
                 disabled={loading}
               >
-                <Camera className="h-8 w-8 mb-2" />
-                <span>Take Photo</span>
+                <Camera className="h-8 w-8 text-primary" />
+                <span className="font-medium">Take Photo</span>
               </Button>
             </div>
           </div>

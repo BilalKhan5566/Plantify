@@ -69,8 +69,22 @@ serve(async (req) => {
 
     if (!topSuggestion) {
       return new Response(
-        JSON.stringify({ error: 'No plant identified' }),
+        JSON.stringify({ error: 'No plant identified', lowConfidence: true }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check confidence threshold (50%)
+    const probability = topSuggestion.probability || 0;
+    if (probability < 0.5) {
+      console.log('Low confidence result:', probability);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Low confidence identification',
+          lowConfidence: true,
+          probability: probability 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

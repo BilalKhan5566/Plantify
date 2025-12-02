@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Leaf, LogOut, Calendar, Menu, User, Flower2 } from 'lucide-react';
 import PlantIdentifier from '@/components/PlantIdentifier';
 import { toast } from 'sonner';
@@ -27,6 +28,7 @@ const Index = () => {
   const [result, setResult] = useState<IdentificationResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Get initial session
@@ -112,7 +114,10 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div 
             className="flex items-center space-x-2 cursor-pointer hover-scale" 
-            onClick={() => setResult(null)}
+            onClick={() => {
+              setResult(null);
+              setErrorMessage(null);
+            }}
           >
             <Leaf className="h-8 w-8 text-primary animate-pulse" style={{ animationDuration: '3s' }} />
             <h1 className="text-2xl font-bold text-foreground">Plantify</h1>
@@ -242,8 +247,35 @@ const Index = () => {
             </p>
           </div>
 
-          {!result ? (
-            <PlantIdentifier onIdentified={setResult} />
+          {!result && !errorMessage ? (
+            <PlantIdentifier 
+              onIdentified={(data) => {
+                setErrorMessage(null);
+                setResult(data);
+              }}
+              onError={(error) => {
+                setResult(null);
+                setErrorMessage(error);
+              }}
+            />
+          ) : errorMessage ? (
+            <Card className="bg-card/90 backdrop-blur-md border-border/50 shadow-xl animate-scale-in">
+              <CardContent className="pt-8 pb-8 text-center space-y-6">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/50">
+                  <Leaf className="h-10 w-10 text-muted-foreground" />
+                </div>
+                <div className="space-y-2 max-w-sm mx-auto">
+                  <h3 className="text-lg font-semibold text-foreground">Hmm, not quite</h3>
+                  <p className="text-muted-foreground">{errorMessage}</p>
+                </div>
+                <Button
+                  onClick={() => setErrorMessage(null)}
+                  className="hover-scale"
+                >
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
           ) : (
             <div className="space-y-4 animate-scale-in">
               <div className="bg-card/90 backdrop-blur-md border border-border rounded-xl p-6 md:p-8 space-y-6 shadow-xl hover-scale">
