@@ -1,4 +1,7 @@
 project_id = "nzcsihlzsqowlbmenomz"
 
+[functions.verify-plant]
+verify_jwt = false
+
 [functions.identify-plant]
 verify_jwt = false
