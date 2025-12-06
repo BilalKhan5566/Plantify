@@ -54,8 +54,17 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('PlantID API error:', response.status, errorText);
+      
+      // Handle rate limit / out of credits specifically
+      if (response.status === 429) {
+        return new Response(
+          JSON.stringify({ error: 'API credits exhausted. Please try again later or contact support.', apiError: true }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: 'Failed to identify plant' }),
+        JSON.stringify({ error: 'Failed to connect to plant identification service. Please try again.', apiError: true }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
