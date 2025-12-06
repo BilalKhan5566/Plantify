@@ -20,116 +20,152 @@ serve(async (req) => {
       );
     }
 
-    const plantIdApiKey = Deno.env.get('PLANTID_API_KEY');
-    if (!plantIdApiKey) {
-      console.error('PLANTID_API_KEY not configured');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
+        JSON.stringify({ error: 'API key not configured', apiError: true }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Calling PlantID API...');
-    
-    const response = await fetch('https://api.plant.id/v2/identify', {
+    console.log('Calling Lovable AI for plant identification...');
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
-        'Api-Key': plantIdApiKey,
       },
       body: JSON.stringify({
-        images: [imageBase64],
-        modifiers: ['crops_fast', 'similar_images'],
-        plant_language: 'en',
-        plant_details: [
-          'common_names',
-          'taxonomy',
-          'url',
-          'description',
-          'watering'
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert botanist. Analyze the plant image and provide identification details.
+            
+You MUST respond with ONLY valid JSON in this exact format, no other text:
+{
+  "identified": true/false,
+  "confidence": 0.0-1.0,
+  "commonName": "Common name of the plant",
+  "scientificName": "Scientific name (genus species)",
+  "about": "1-2 sentence summary about this plant",
+  "explanation": "3-4 sentences describing characteristics, origin, and interesting facts",
+  "wateringFrequencyDays": number (how often to water in days),
+  "sunlight": "Light requirements (e.g., 'Bright indirect light')",
+  "soilType": "Preferred soil type",
+  "nativeRegion": "Where the plant originates from",
+  "careLevel": "Easy/Moderate/Difficult"
+}
+
+If you cannot identify the plant or confidence is below 50%, set "identified" to false.`
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Please identify this plant and provide detailed care information.'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`
+                }
+              }
+            ]
+          }
         ],
+        max_tokens: 1000,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('PlantID API error:', response.status, errorText);
+      console.error('Lovable AI error:', response.status, errorText);
       
-      // Handle rate limit / out of credits specifically
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: 'API credits exhausted. Please try again later or contact support.', apiError: true }),
+          JSON.stringify({ error: 'Rate limit exceeded. Please try again in a moment.', apiError: true }),
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ error: 'AI credits exhausted. Please add funds to continue.', apiError: true }),
+          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       return new Response(
-        JSON.stringify({ error: 'Failed to connect to plant identification service. Please try again.', apiError: true }),
+        JSON.stringify({ error: 'Failed to identify plant. Please try again.', apiError: true }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const data = await response.json();
-    console.log('PlantID API response received');
+    const aiResponse = await response.json();
+    console.log('AI response received');
 
-    // Extract the most probable plant suggestion
-    const suggestions = data.suggestions || [];
-    const topSuggestion = suggestions[0];
-
-    if (!topSuggestion) {
+    const content = aiResponse.choices?.[0]?.message?.content;
+    if (!content) {
       return new Response(
-        JSON.stringify({ error: 'No plant identified', lowConfidence: true }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'No identification result', lowConfidence: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parse the JSON response
+    let plantData;
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        plantData = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('No JSON found in response');
+      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', content);
+      return new Response(
+        JSON.stringify({ error: 'Failed to parse plant data', lowConfidence: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Check confidence threshold (50%)
-    const probability = topSuggestion.probability || 0;
-    if (probability < 0.5) {
-      console.log('Low confidence result:', probability);
+    if (!plantData.identified || plantData.confidence < 0.5) {
+      console.log('Low confidence result:', plantData.confidence);
       return new Response(
         JSON.stringify({ 
           error: 'Low confidence identification',
           lowConfidence: true,
-          probability: probability 
+          probability: plantData.confidence || 0
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const plantDetails = topSuggestion.plant_details || {};
-    const commonNames = plantDetails.common_names || [];
-    const scientificName = topSuggestion.plant_name || 'Unknown';
-    const rawDescription = plantDetails.description?.value || 'No description available';
-    const watering = plantDetails.watering?.max || 7;
-    
-    // Extract structured information from the description
-    const sentences = rawDescription.split('. ').filter((s: string) => s.length > 0);
-    
-    // About: First 1-2 sentences
-    const about = sentences.slice(0, 2).join('. ') + '.';
-    
-    // Explanation: Next 3-4 sentences
-    const explanation = sentences.slice(2, 6).join('. ') + (sentences.length > 2 ? '.' : '');
-    
-    // Additional Information: Extract key facts
+    // Build additional info array
     const additionalInfo = [
-      `Watering: Every ${watering} days`,
-      'Sunlight: Moderate to bright indirect light',
-      'Soil: Well-draining potting mix',
-      'Growth: Moderate growth rate',
-      'Native: Varies by species'
+      `Watering: Every ${plantData.wateringFrequencyDays || 7} days`,
+      `Sunlight: ${plantData.sunlight || 'Moderate indirect light'}`,
+      `Soil: ${plantData.soilType || 'Well-draining potting mix'}`,
+      `Native to: ${plantData.nativeRegion || 'Various regions'}`,
+      `Care Level: ${plantData.careLevel || 'Moderate'}`
     ];
-    
+
     const result = {
-      commonName: commonNames[0] || scientificName,
-      scientificName,
-      about,
-      explanation: explanation || about,
+      commonName: plantData.commonName || 'Unknown Plant',
+      scientificName: plantData.scientificName || 'Species unknown',
+      about: plantData.about || 'A beautiful plant species.',
+      explanation: plantData.explanation || plantData.about || 'No additional details available.',
       additionalInfo,
-      wateringFrequencyDays: watering,
-      probability: topSuggestion.probability || 0,
+      wateringFrequencyDays: plantData.wateringFrequencyDays || 7,
+      probability: plantData.confidence || 0.8,
     };
+
+    console.log('Plant identified:', result.commonName);
 
     return new Response(
       JSON.stringify(result),
@@ -139,7 +175,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in identify-plant function:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error', apiError: true }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
