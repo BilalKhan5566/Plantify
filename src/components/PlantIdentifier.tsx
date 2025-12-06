@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Camera, Upload, Loader2, Leaf } from 'lucide-react';
+import { Camera, Upload, Leaf } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import CameraCapture from './CameraCapture';
 
 interface IdentificationResult {
@@ -154,16 +155,50 @@ const PlantIdentifier = ({ onIdentified, onError }: PlantIdentifierProps) => {
     <Card className="w-full bg-card/90 backdrop-blur-md border-border/50 shadow-xl">
       <CardContent className="pt-6 pb-8">
         {preview && loading ? (
-          <div className="space-y-4">
-            <img
-              src={preview}
-              alt="Plant preview"
-              className="w-full h-64 object-cover rounded-xl shadow-lg"
-            />
-            <div className="flex flex-col items-center justify-center py-4 space-y-3">
-              <div className="relative">
-                <Leaf className="h-8 w-8 text-primary animate-pulse" />
-                <Loader2 className="h-12 w-12 text-primary/30 animate-spin absolute -top-2 -left-2" />
+          <div className="space-y-6 animate-fade-in">
+            {/* Image with shimmer overlay */}
+            <div className="relative overflow-hidden rounded-xl">
+              <img
+                src={preview}
+                alt="Plant preview"
+                className="w-full h-64 md:h-80 object-cover rounded-xl shadow-lg opacity-80"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skeleton-shimmer" />
+            </div>
+            
+            {/* Skeleton result card */}
+            <div className="space-y-5 p-6 bg-card/50 rounded-xl border border-border/30">
+              {/* Header skeleton */}
+              <div className="space-y-3 border-b border-border/30 pb-4">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+              
+              {/* About section skeleton */}
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+              </div>
+              
+              {/* Additional info skeleton */}
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-4/5" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              </div>
+            </div>
+            
+            {/* Loading step indicator */}
+            <div className="flex items-center justify-center gap-3 py-2">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
               <span className="text-muted-foreground text-sm">{loadingStep}</span>
             </div>
