@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Leaf, LogOut, Calendar, Menu, User, Flower2 } from 'lucide-react';
+import { Leaf, LogOut, Calendar, Menu, User, Flower2, AlertCircle } from 'lucide-react';
 import PlantIdentifier from '@/components/PlantIdentifier';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -279,10 +279,18 @@ const Index = () => {
             <Card className="bg-card/90 backdrop-blur-md border-border/50 shadow-xl animate-scale-in">
               <CardContent className="pt-8 pb-8 text-center space-y-6">
                 <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/50">
-                  <Leaf className="h-10 w-10 text-muted-foreground" />
+                  {errorMessage.includes('credits') || errorMessage.includes('service') ? (
+                    <AlertCircle className="h-10 w-10 text-destructive/70" />
+                  ) : (
+                    <Leaf className="h-10 w-10 text-muted-foreground" />
+                  )}
                 </div>
                 <div className="space-y-2 max-w-sm mx-auto">
-                  <h3 className="text-lg font-semibold text-foreground">Hmm, not quite</h3>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {errorMessage.includes('credits') || errorMessage.includes('service') 
+                      ? "Service unavailable" 
+                      : "Hmm, not quite"}
+                  </h3>
                   <p className="text-muted-foreground">{errorMessage}</p>
                 </div>
                 <Button
