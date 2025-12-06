@@ -20,30 +20,29 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    const GEMINI_API_KEY = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      console.error('GOOGLE_GEMINI_API_KEY not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured', apiError: true }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Calling Lovable AI for plant identification...');
+    console.log('Calling Google Gemini for plant identification...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
+        contents: [
           {
-            role: 'system',
-            content: `You are an expert botanist. Analyze the plant image and provide identification details.
-            
+            parts: [
+              {
+                text: `You are an expert botanist. Analyze this plant image and provide identification details.
+
 You MUST respond with ONLY valid JSON in this exact format, no other text:
 {
   "identified": true/false,
@@ -60,30 +59,26 @@ You MUST respond with ONLY valid JSON in this exact format, no other text:
 }
 
 If you cannot identify the plant or confidence is below 50%, set "identified" to false.`
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Please identify this plant and provide detailed care information.'
               },
               {
-                type: 'image_url',
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: imageBase64
                 }
               }
             ]
           }
         ],
-        max_tokens: 1000,
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: 1000,
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
@@ -91,10 +86,10 @@ If you cannot identify the plant or confidence is below 50%, set "identified" to
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 403) {
         return new Response(
-          JSON.stringify({ error: 'AI credits exhausted. Please add funds to continue.', apiError: true }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Invalid API key. Please check your Gemini API key.', apiError: true }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
@@ -105,10 +100,11 @@ If you cannot identify the plant or confidence is below 50%, set "identified" to
     }
 
     const aiResponse = await response.json();
-    console.log('AI response received');
+    console.log('Gemini response received');
 
-    const content = aiResponse.choices?.[0]?.message?.content;
+    const content = aiResponse.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!content) {
+      console.error('No content in Gemini response:', aiResponse);
       return new Response(
         JSON.stringify({ error: 'No identification result', lowConfidence: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -126,7 +122,7 @@ If you cannot identify the plant or confidence is below 50%, set "identified" to
         throw new Error('No JSON found in response');
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', content);
+      console.error('Failed to parse Gemini response:', content);
       return new Response(
         JSON.stringify({ error: 'Failed to parse plant data', lowConfidence: true }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
